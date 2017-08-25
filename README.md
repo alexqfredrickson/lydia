@@ -36,8 +36,9 @@ And worst of all, lydia doesn't like the **[super hidden](http://www.eightforums
 ### installation/setup
 
 1. Download the GitHub repository.
-2. Specify the working directory.
-3. Let lydia loose
+2. Download eyed3.
+3. Udpate the hard-coded working directory.
+4. Let lydia loose
 
 ### coming soon
 
