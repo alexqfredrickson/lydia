@@ -1,6 +1,6 @@
 # lydia
 
-**lydia** is suggest that you clean up your .mp3 folder.  More specifically, **lydia** is a highly-opinionated Python 3 utility that uses a combination of regex and [eyed3](http://eyed3.nicfit.net/) in order to help tidy things up.
+**lydia** provides suggestions about how you should clean up your .mp3 folder.  More specifically, **lydia** is a highly-opinionated Python 3 utility that uses a combination of regex and [eyed3](http://eyed3.nicfit.net/) in order to help tidy things up.
 
 ### things lydia likes
 
