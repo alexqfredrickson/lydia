@@ -56,6 +56,6 @@ And worst of all, lydia doesn't like the **[super hidden](http://www.eightforums
 | :---------------- | :----------- | :------------ |
 | workingDirectory | string      | a path to the root-level folder that lydia inspects |
 
-## special thanks
+### special thanks
 
 to winlint-cli and delia (r.i.p.) - the C# and WPF versions of lydia that I frankensteined and deprecated to write this program
