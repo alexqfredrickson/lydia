@@ -33,13 +33,13 @@ lydia will act prejudicially towards you because your album folders don't contai
 
 And worst of all, lydia doesn't like the **[super hidden](http://www.eightforums.com/general-support/40071-how-stop-windows-generating-random-album-art-files.html) [files](https://hydrogenaud.io/index.php/topic,67704.0.html)** in your music folder which were generated at some point or another by Windows Media Player and just sort of fly around under the radar ***coming soon***.
 
-## installation/setup
+### installation/setup
 
 1. Download the GitHub repository.
 2. Specify the working directory.
 3. Let lydia loose
 
-## coming soon
+### coming soon
 
 * all ***coming soon*** features
 * json-based config instead of hard-coded garbage:
@@ -55,3 +55,7 @@ And worst of all, lydia doesn't like the **[super hidden](http://www.eightforums
 | name             |   type      | description  |
 | :---------------- | :----------- | :------------ |
 | workingDirectory | string      | a path to the root-level folder that lydia inspects |
+
+## special thanks
+
+to winlint-cli and delia (r.i.p.) - the C# and WPF versions of lydia that I frankensteined and deprecated to write this program
