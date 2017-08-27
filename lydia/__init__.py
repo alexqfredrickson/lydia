@@ -68,7 +68,7 @@ class Utilities:
             # TODO: when files are renamed, change the folder references to the old fq name
             print("Succesfully renamed '{}' to '{}'.".format(old_dir_name, new_dir_name))
 
-rootdir = "C:\my horribly disorganized music folder"
+rootdir = "I:\MUSIC FROM THE YEAR 3000\complete"
 
 for folder in os.listdir(rootdir):
     f = Folder(rootdir, folder)
