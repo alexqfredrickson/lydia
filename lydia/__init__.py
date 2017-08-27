@@ -1,6 +1,7 @@
 from eyed3 import id3
 import os
 import re
+import json
 
 
 class Folder:
@@ -26,9 +27,9 @@ class Folder:
         if self.name[0].isdigit() \
                and self.name[1].isdigit() \
                and self.name[2].isdigit() \
-               and folder[3].isdigit() \
-               and folder[4].isspace() \
-               and folder[5] == "-":
+               and self.name[3].isdigit() \
+               and self.name[4].isspace() \
+               and self.name[5] == "-":
             first_two_chars = self.name[0] + self.name[1]
             if first_two_chars in ("19", "20"):
                 return True
@@ -53,9 +54,25 @@ class FirstMp3:
         self.file_tag.parse(self.fully_qualified_path)
 
 
-class Utilities:
+class Program:
     def __init__(self):
-        pass
+        self.executing_directory = self.get_executing_directory()
+        self.config_file_path = os.path.join(self.executing_directory, "config.json")
+        self.working_directory = self.get_working_directory()
+
+    @staticmethod
+    def get_executing_directory():
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    def get_working_directory(self):
+        """
+        Parses the config.json file for the working directory.
+        :return: string
+        """
+
+        with open(self.config_file_path) as config_file:
+            config = json.load(config_file)
+            return config[0]["working_directory"]
 
     @staticmethod
     def prompt_rename(old_dir_name, new_dir_name):
@@ -68,10 +85,10 @@ class Utilities:
             # TODO: when files are renamed, change the folder references to the old fq name
             print("Succesfully renamed '{}' to '{}'.".format(old_dir_name, new_dir_name))
 
-rootdir = "I:\MUSIC FROM THE YEAR 3000\complete"
+program = Program()
 
-for folder in os.listdir(rootdir):
-    f = Folder(rootdir, folder)
+for folder in os.listdir(program.working_directory):
+    f = Folder(program.working_directory, folder)
 
     if f.name_is_valid():
         print("'{}' looks legit!".format(f.name))
@@ -83,8 +100,8 @@ for folder in os.listdir(rootdir):
         if f.name_has_uppercase_letters():
             print("No big deal but it looks like '{}' has uppercase letters.".format(f.name))
 
-            Utilities.prompt_rename(
-                f.fully_qualified_path, os.path.join(os.path.join(rootdir, f.name.lower()))
+            program.prompt_rename(
+                f.fully_qualified_path, os.path.join(os.path.join(program.working_directory, f.name.lower()))
             )
 
         if f.name_starts_with_year_and_space() is False:
@@ -97,9 +114,9 @@ for folder in os.listdir(rootdir):
                 if f.first_mp3.file_tag.recording_date is not None and f.first_mp3.file_tag.album is not None:
                     print("The old folder name is '{}'.".format(f.fully_qualified_path))
 
-                    Utilities.prompt_rename(
+                    program.prompt_rename(
                         f.fully_qualified_path,
-                        os.path.join(os.path.join(rootdir, str(f.first_mp3.file_tag.recording_date)
+                        os.path.join(os.path.join(program.working_directory, str(f.first_mp3.file_tag.recording_date)
                                                   + " - " + f.first_mp3.file_tag.album.lower()))
                     )
 
