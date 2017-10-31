@@ -1,3 +1,3 @@
-import lydia.lydia.lydia as ly
+import lydia as ly
 
 ly.init()
