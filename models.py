@@ -248,9 +248,13 @@ class AlbumDirectory(Directory):
 
         if self.is_empty:
             self.delete(contextual_message="{0} folder doesn't have any files.".format(self.basename))
+            self.basename = None
+            return
 
         if self.has_mp3s is False and self.has_flacs is False:
             self.delete(contextual_message="{0} folder doesn't have any .mp3 or .flac files.".format(self.basename))
+            self.basename = None
+            return
 
 
 class Program:
