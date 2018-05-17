@@ -1,7 +1,9 @@
 import re
 import os
-import shutil
 import json
+import shutil
+import discogs_client
+from enum import Enum
 from eyed3 import id3
 
 
@@ -78,63 +80,53 @@ class AlbumDirectory(Directory):
     def __init__(self, path):
         Directory.__init__(self, path)
 
-        self.mp3s = []
+        self.mp3s = self.get_mp3s(self.path)
 
-        path, dirs, files = os.walk(self.path).__next__()
+        self.validator = AlbumDirectoryValidator(self)
+
+    @staticmethod
+    def get_mp3s(path):
+        mp3s = []
+
+        path, dirs, files = os.walk(path).__next__()
 
         for file in files:
             if file.lower().endswith(".mp3"):
-                self.mp3s.append(Mp3(os.path.join(path, file)))
+                mp3s.append(Mp3(os.path.join(path, file)))
+
+        return mp3s
 
     @property
-    def basename_is_lowercase(self):
-        # if the basename is chinese/japanese/korean, let's just say it's lowercase
-        if any(re.match("[\u2E80-\u9FFF]", letter) for letter in self.basename):
-            return True
+    def assumed_year(self):
+        standard_year_regex = "^\d{4}\s-\s"
+        year_in_parentheses_with_hyphen_regex = "^\(\d{4}\)\s-\s"
+        year_in_brackets_with_hyphen_regex = "^\[\d{4}\]\s-\s"
+        has_something_that_looks_remotely_like_a_year_regex = r"(17\d{2}|18\d{2}|19\d{2}|20\d{2})"
 
-        return all(letter.islower() for letter in self.basename if letter.isalpha())
+        if re.match(standard_year_regex, self.basename):
+            return self.basename[:4]
+        if re.match(year_in_parentheses_with_hyphen_regex, self.basename) or re.match(year_in_brackets_with_hyphen_regex, self.basename):
+            return self.basename[1:5]
+        elif len(self.mp3s) > 0 and self.mp3s[0].id_tag.recording_date:
+            return str(self.mp3s[0].id_tag.recording_date)
+        elif re.match(has_something_that_looks_remotely_like_a_year_regex, self.basename):
+            return re.findall(has_something_that_looks_remotely_like_a_year_regex, self.basename)[0]
 
-    @property
-    def basename_has_valid_year_and_title(self):
-        return re.match(r"(17|18|19|20)\d{2}\s-\s..*", self.basename) is not None
-
-    @property
-    def basename_is_valid(self):
-        return self.basename_is_lowercase and self.basename_has_valid_year_and_title
-
-    @property
-    def contains_subdirectories(self):
-        path, dirs, files = os.walk(self.path).__next__()
-        return len(dirs) > 0
+        return None
 
     @property
-    def is_empty(self):
-        return os.listdir(self.path) == []
+    def assumed_title(self):
+        has_hyphen_regex = re.compile(r"\s-\s(.*)")
+        has_hyphen_regex_match = has_hyphen_regex.search(self.basename)
 
-    @property
-    def has_mp3s(self):
-        return any(x.lower().endswith(".mp3") for x in self.all_nested_files)
+        if has_hyphen_regex_match:
+            return has_hyphen_regex_match.group(1).lower()
+        elif len(self.mp3s) > 0 and str(self.mp3s[0].id_tag.recording_date):
+            return str(self.mp3s[0].id_tag.album).lower()
 
-    @property
-    def has_flacs(self):
-        return any(x.lower().endswith(".flac") for x in self.all_nested_files)
+        return None
 
-    @property
-    def contents_are_valid(self):
-        return self.contains_subdirectories is False and self.is_empty is False and self.has_mp3s
-
-    @property
-    def is_valid(self):
-        return self.basename_is_valid and self.contents_are_valid
-
-    def guess_album_year(self):
-        valid_year_regex = r"(17\d{2}|18\d{2}|19\d{2}|20\d{2})"
-        return re.findall(valid_year_regex, self.basename)
-
-    def rename(self, new_basename, contextual_message=None, ask_permission=True, verbose=True):
-
-        if contextual_message:
-            print(contextual_message)
+    def rename(self, new_basename, ask_permission=True, verbose=True):
 
         if ask_permission:
             print("Would you like to change '{}' to '{}' in '{}'?".format(self.basename, new_basename, self.dirname))
@@ -142,11 +134,12 @@ class AlbumDirectory(Directory):
             user_input = input().lower()
 
             if user_input in ("y", "yes"):
+
                 print("Okay, will do!")
                 os.rename(self.path, os.path.join(self.dirname, new_basename))
 
                 if verbose:
-                    print("Succesfully renamed '{}' to '{}'.".format(self.basename, new_basename))
+                    print("Succesfully renamed '{}' to '{}'.\n".format(self.basename, new_basename))
 
                 self.path = os.path.join(self.dirname, new_basename)
                 self.basename = new_basename
@@ -155,7 +148,7 @@ class AlbumDirectory(Directory):
 
             else:
                 if verbose:
-                    print("Okay, I won't rename this.")
+                    print("Okay, I won't rename this.\n")
 
                 return False
         else:
@@ -165,12 +158,9 @@ class AlbumDirectory(Directory):
 
             return True
 
-    def delete(self, contextual_message=None, ask_permission=True, verbose=True):
+    def delete(self, ask_permission=True, verbose=True):
 
         path = self.path
-
-        if contextual_message:
-            print(contextual_message)
 
         if ask_permission:
             print("Would you like to delete '{}' ?".format(path))
@@ -198,66 +188,92 @@ class AlbumDirectory(Directory):
             self.path = None
             self.basename = None
 
-    def lint_basename(self):
-        if self.basename_is_lowercase is False:
-            self.rename(
-                self.basename.lower(),
-                contextual_message="No big deal but it looks like '{}' has uppercase letters.".format(self.basename)
-            )
 
-        if self.basename_has_valid_year_and_title is False:
-            print("'{}' isn't in format 'YYYY - '.".format(self.basename))
+class AlbumDirectoryValidator:
+    def __init__(self, album_directory):
+        self.album_directory = album_directory
+        self.validation_errors = []
 
-            album_renamed = False
+        self.validate()
 
-            if re.match(r"^\(\d{4}\)\s", self.basename) or re.match(r"^\[\d{4}\]\s", self.basename):
-                album_renamed = self.rename(
-                    "{0} - {1}" .format(self.basename[1:5], self.basename[7:]),
-                    contextual_message="It looks like the album year is specified, just in a weird format."
-                )
+    @property
+    def is_valid(self):
+        return len(self.validation_errors) == 0
 
-            if not album_renamed:
+    def validate(self):
+        if not self.validate_basename_is_lowercase:
+            print("{} looks like it has uppercase letters.".format(self.album_directory.basename))
+            self.validation_errors.append(AlbumDirectoryValidationError.BASENAME_NOT_LOWERCASE)
 
-                print("Attempting to infer the album name from the first .mp3's ID3 tag...")
+        if not self.validate_basename_has_valid_year_and_hyphen:
+            print("{} isn't in format 'YYYY - '.".format(self.album_directory.basename))
+            self.validation_errors.append(AlbumDirectoryValidationError.BASENAME_YEAR_HYPHEN_INVALID)
 
-                inferred_album_year, inferred_album_name = None, None
+        if not self.validate_has_no_subdirectories:
+            print("{} has subdirectories, which is kind of weird."
+                  .format(self.album_directory.basename))
+            self.validation_errors.append(AlbumDirectoryValidationError.HAS_SUBDIRECTORIES)
 
-                if self.has_mp3s:
-                    inferred_album_year = self.mp3s[0].id_tag.recording_date
-                    inferred_album_name = self.mp3s[0].id_tag.album
+        if not self.validate_is_not_empty:
+            print("({} is empty.".format(self.album_directory.basename))
+            self.validation_errors.append(AlbumDirectoryValidationError.IS_EMPTY)
 
-                if inferred_album_year and inferred_album_name:
-                    self.rename(
-                        "{} - {}" .format(str(inferred_album_year), inferred_album_name.lower())
-                    )
-                elif self.guess_album_year() and inferred_album_name:
-                    self.rename(
-                        "{} - {}" .format(self.guess_album_year()[0], inferred_album_name.lower())
-                    )
-                elif self.guess_album_year():
-                    self.rename(
-                        "{0} - {1}" .format(self.guess_album_year()[0], self.basename),
-                        contextual_message="Okay, last try."
-                    )
-                else:
-                    print("... I couldn't figure out what to rename this to.\n")
+        if not self.validate_has_mp3s_or_flacs:
+            print("{} doesn't contain any .mp3 or .flac files."
+                  .format(self.album_directory.basename))
+            self.validation_errors.append(AlbumDirectoryValidationError.NO_MP3S_OR_FLACS)
 
-    def lint_contents(self):
-        if self.contains_subdirectories:
-            print("{0} has subdirectories, which is kind of weird... FYI.".format(self.basename))
+        if not self.validate_has_year_and_title:
+            print("{} doesn't have an obvious year/title."
+                  .format(self.album_directory.basename))
+            self.validation_errors.append(AlbumDirectoryValidationError.NO_OBVIOUS_YEAR_AND_TITLE)
 
-        if self.is_empty:
-            self.delete(contextual_message="{0} folder doesn't have any files.".format(self.basename))
-            self.basename = None
-            return
+    @property
+    def validate_basename_is_lowercase(self):
+        # if the basename is chinese/japanese/korean, let's just say it's lowercase
+        if any(re.match("[\u2E80-\u9FFF]", letter) for letter in self.album_directory.basename):
+            return True
 
-        if self.has_mp3s is False and self.has_flacs is False:
-            self.delete(contextual_message="{0} folder doesn't have any .mp3 or .flac files.".format(self.basename))
-            self.basename = None
-            return
+        return all(letter.islower() for letter in self.album_directory.basename if letter.isalpha())
+
+    @property
+    def validate_basename_has_valid_year_and_hyphen(self):
+        return re.match(r"(17|18|19|20)\d{2}\s-\s..*", self.album_directory.basename) is not None
+
+    @property
+    def validate_has_no_subdirectories(self):
+        path, dirs, files = os.walk(self.album_directory.path).__next__()
+        return len(dirs) == 0
+
+    @property
+    def validate_is_not_empty(self):
+        return os.listdir(self.album_directory.path) != []
+
+    @property
+    def validate_has_mp3s_or_flacs(self):
+        return any(x.lower().endswith(".mp3") for x in self.album_directory.all_nested_files) or \
+               any(x.lower().endswith(".flac") for x in self.album_directory.all_nested_files)
+
+    @property
+    def validate_has_year_and_title(self):
+        return re.match(r"\d{4}\s-\s.*", self.album_directory.basename)
+
+    @property
+    def is_valid(self):
+        return len(self.validation_errors) == 0
 
 
-class Program:
+class AlbumDirectoryValidationError(Enum):
+
+    BASENAME_NOT_LOWERCASE = 0,
+    BASENAME_YEAR_HYPHEN_INVALID = 1,
+    HAS_SUBDIRECTORIES = 2,
+    IS_EMPTY = 3,
+    NO_MP3S_OR_FLACS = 4,
+    NO_OBVIOUS_YEAR_AND_TITLE = 5
+
+
+class LydiaConfig:
     def __init__(self):
         self.executing_directory = self.get_executing_directory()
         self.config_file_path = os.path.join(self.executing_directory, "config.json")
@@ -276,4 +292,3 @@ class Program:
         with open(self.config_file_path) as config_file:
             config = json.load(config_file)
             return config[0]["working_directory"]
-
