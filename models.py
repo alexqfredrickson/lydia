@@ -277,18 +277,19 @@ class LydiaConfig:
     def __init__(self):
         self.executing_directory = self.get_executing_directory()
         self.config_file_path = os.path.join(self.executing_directory, "config.json")
-        self.working_directory = self.get_working_directory()
+        self.working_directory = self.get_config_value("working_directory")
+        self.archive_directory = self.get_config_value("archive_directory")
 
     @staticmethod
     def get_executing_directory():
         return os.path.dirname(os.path.abspath(__file__))
 
-    def get_working_directory(self):
+    def get_config_value(self, name):
         """
-        Parses the config.json file for the working directory fully qualified path.
+        Parses the config.json file for some value.
         :return: string
         """
 
         with open(self.config_file_path) as config_file:
             config = json.load(config_file)
-            return config[0]["working_directory"]
+            return config[0][name]
