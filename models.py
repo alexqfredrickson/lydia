@@ -28,104 +28,6 @@ class Directory:
                 filepath = os.path.join(root, filename)
                 self.all_nested_files.append(filepath)
 
-
-class Mp3:
-    def __init__(self, path):
-        """
-        :param path: The path to this .mp3 file.
-        """
-
-        self.path = path
-        self.basename = os.path.basename(self.path)
-
-        self.id_tag = id3.Tag()
-        self.id_tag.parse(self.path)
-
-
-class SortedArchive(Directory):
-    """
-    A sorted archive contains only artist-related subdirectories.
-    """
-
-    def __init__(self, path):
-        Directory.__init__(self, path)
-        self.subdirectories = [ArtistDirectory(x[0] for x in os.walk(path))]
-
-
-class UnsortedArchive(Directory):
-    """
-    An unsorted archive is assumed to contain only album-related subdirectories.
-    """
-
-    def __init__(self, path):
-        Directory.__init__(self, path)
-        self.subdirectories = [AlbumDirectory(x[0] for x in os.walk(path))]
-
-
-class ArtistDirectory(Directory):
-    """
-    An artist directory is assumed to contain only album-related subdirectories.
-    """
-
-    def __init__(self, path):
-        Directory.__init__(self, path)
-        self.subdirectories = [AlbumDirectory(x[0] for x in os.walk(path))]
-
-
-class AlbumDirectory(Directory):
-    """
-    An album directory is assumed to contain only .mp3 files.
-    """
-
-    def __init__(self, path):
-        Directory.__init__(self, path)
-
-        self.mp3s = self.get_mp3s(self.path)
-
-        self.validator = AlbumDirectoryValidator(self)
-
-    @staticmethod
-    def get_mp3s(path):
-        mp3s = []
-
-        path, dirs, files = os.walk(path).__next__()
-
-        for file in files:
-            if file.lower().endswith(".mp3"):
-                mp3s.append(Mp3(os.path.join(path, file)))
-
-        return mp3s
-
-    @property
-    def assumed_year(self):
-        standard_year_regex = "^\d{4}\s-\s"
-        year_in_parentheses_with_hyphen_regex = "^\(\d{4}\)\s-\s"
-        year_in_brackets_with_hyphen_regex = "^\[\d{4}\]\s-\s"
-        has_something_that_looks_remotely_like_a_year_regex = r"(17\d{2}|18\d{2}|19\d{2}|20\d{2})"
-
-        if re.match(standard_year_regex, self.basename):
-            return self.basename[:4]
-        if re.match(year_in_parentheses_with_hyphen_regex, self.basename) or re.match(year_in_brackets_with_hyphen_regex, self.basename):
-            return self.basename[1:5]
-        elif len(self.mp3s) > 0 and self.mp3s[0].id_tag.recording_date:
-            return str(self.mp3s[0].id_tag.recording_date)
-        elif re.match(has_something_that_looks_remotely_like_a_year_regex, self.basename):
-            return re.findall(has_something_that_looks_remotely_like_a_year_regex, self.basename)[0]
-
-        return None
-
-    @property
-    def assumed_title(self):
-        has_hyphen_regex = re.compile(r"\s-\s(.*)")
-        has_hyphen_regex_match = has_hyphen_regex.search(self.basename)
-
-        if has_hyphen_regex_match:
-            return has_hyphen_regex_match.group(1).lower()
-        elif len(self.mp3s) > 0 and str(self.mp3s[0].id_tag.recording_date):
-            return str(self.mp3s[0].id_tag.album).lower()
-
-        return None
-
     def rename(self, new_basename, ask_permission=True, verbose=True):
 
         if ask_permission:
@@ -189,6 +91,204 @@ class AlbumDirectory(Directory):
             self.basename = None
 
 
+class Mp3:
+    def __init__(self, path):
+        """
+        :param path: The path to this .mp3 file.
+        """
+
+        self.path = path
+        self.basename = os.path.basename(self.path)
+
+        self.id_tag = id3.Tag()
+        self.id_tag.parse(self.path)
+
+
+class SortedArchive(Directory):
+    """
+    A sorted archive contains only artist-related subdirectories.
+    """
+
+    def __init__(self, path):
+        Directory.__init__(self, path)
+        self.subdirectories = [ArtistDirectory(x[0] for x in os.walk(path))]
+
+
+class UnsortedArchive(Directory):
+    """
+    An unsorted archive is assumed to contain only album-related subdirectories.
+    """
+
+    def __init__(self, path):
+        Directory.__init__(self, path)
+        self.subdirectories = [AlbumDirectory(x[0] for x in os.walk(path))]
+
+
+class ArtistDirectory(Directory):
+    """
+    An artist directory is assumed to contain only album-related subdirectories.
+    """
+
+    def __init__(self, path):
+        Directory.__init__(self, path)
+
+        self.validator = ArtistDirectoryValidator(self)
+        self.album_directories = self.get_album_directories()
+
+    def clean(self, dry_run):
+        for error in self.validator.validation_errors:
+            if error == ArtistDirectoryValidationError.IS_EMPTY:
+                if dry_run:
+                    print("would have deleted {}".format(self.basename))
+                else:
+                    self.delete()
+
+                break
+            else:
+                if error == AlbumDirectoryValidationError.BASENAME_NOT_LOWERCASE:
+                    self.rename(self.basename.lower(), ask_permission=False)
+
+    def get_album_directories(self):
+        dirs = []
+
+        for subdir in os.listdir(self.path):
+            if os.path.isdir(os.path.join(self.path, subdir)):
+                dirs.append(AlbumDirectory(os.path.join(self.path, subdir)))
+
+        return dirs
+
+
+class ArtistDirectoryValidator:
+    def __init__(self, artist_directory):
+        self.artist_directory = artist_directory
+        self.validation_errors = []
+
+        self.validate()
+
+    @property
+    def is_valid(self):
+        return len(self.validation_errors) == 0
+
+    def validate(self):
+        print("Validating '{}' artist directory...".format(self.artist_directory.path))
+
+        if not self.validate_basename_is_lowercase:
+            print("    {} looks like it has uppercase letters.".format(self.artist_directory.basename))
+            self.validation_errors.append(ArtistDirectoryValidationError.BASENAME_NOT_LOWERCASE)
+
+        if not self.validate_is_not_empty:
+            print("    {} is empty.".format(self.artist_directory.basename))
+            self.validation_errors.append(ArtistDirectoryValidationError.IS_EMPTY)
+
+        if self.is_valid:
+            print("'{}' artist directory is valid!".format(self.artist_directory.path))
+
+    @property
+    def validate_basename_is_lowercase(self):
+        # if the basename is chinese/japanese/korean, let's just say it's lowercase
+        if any(re.match("[\u2E80-\u9FFF]", letter) for letter in self.artist_directory.basename):
+            return True
+
+        return all(letter.islower() for letter in self.artist_directory.basename if letter.isalpha())
+
+    @property
+    def validate_is_not_empty(self):
+        return os.listdir(self.artist_directory.path) != []
+
+    @property
+    def is_valid(self):
+        return len(self.validation_errors) == 0
+
+
+class ArtistDirectoryValidationError(Enum):
+
+    BASENAME_NOT_LOWERCASE = 0,
+    IS_EMPTY = 1
+
+
+class AlbumDirectory(Directory):
+    """
+    An album directory is assumed to contain only .mp3 files.
+    """
+
+    def __init__(self, path):
+        Directory.__init__(self, path)
+
+        self.mp3s = self.get_mp3s(self.path)
+
+        self.validator = AlbumDirectoryValidator(self)
+
+    @staticmethod
+    def get_mp3s(path):
+        mp3s = []
+
+        path, dirs, files = os.walk(path).__next__()
+
+        for file in files:
+            if file.lower().endswith(".mp3"):
+                mp3s.append(Mp3(os.path.join(path, file)))
+
+        return mp3s
+
+    @property
+    def assumed_year(self):
+        standard_year_regex = "^\d{4}\s-\s"
+        year_in_parentheses_with_hyphen_regex = "^\(\d{4}\)\s-\s"
+        year_in_brackets_with_hyphen_regex = "^\[\d{4}\]\s-\s"
+        has_something_that_looks_remotely_like_a_year_regex = r"(17\d{2}|18\d{2}|19\d{2}|20\d{2})"
+
+        if re.match(standard_year_regex, self.basename):
+            return self.basename[:4]
+        if re.match(year_in_parentheses_with_hyphen_regex, self.basename) \
+                or re.match(year_in_brackets_with_hyphen_regex, self.basename):
+            return self.basename[1:5]
+        elif len(self.mp3s) > 0 and self.mp3s[0].id_tag.recording_date:
+            return str(self.mp3s[0].id_tag.recording_date)
+        elif re.match(has_something_that_looks_remotely_like_a_year_regex, self.basename):
+            return re.findall(has_something_that_looks_remotely_like_a_year_regex, self.basename)[0]
+
+        return None
+
+    @property
+    def assumed_title(self):
+        has_hyphen_regex = re.compile(r"\s-\s(.*)")
+        has_hyphen_regex_match = has_hyphen_regex.search(self.basename)
+
+        if has_hyphen_regex_match:
+            return has_hyphen_regex_match.group(1).lower()
+        elif len(self.mp3s) > 0 and str(self.mp3s[0].id_tag.recording_date):
+            return str(self.mp3s[0].id_tag.album).lower()
+
+        return None
+
+    def clean(self):
+        for error in self.validator.validation_errors:
+
+            if error in [AlbumDirectoryValidationError.IS_EMPTY,
+                         AlbumDirectoryValidationError.NO_MP3S_OR_FLACS]:
+                self.delete()
+                break
+            else:
+                if error == AlbumDirectoryValidationError.BASENAME_NOT_LOWERCASE:
+                    self.rename(self.basename.lower(), ask_permission=False)
+
+                if error == AlbumDirectoryValidationError.NO_OBVIOUS_YEAR_AND_TITLE:
+
+                    if self.assumed_year is not None and self.assumed_title is not None:
+                        old_name = self.basename
+                        new_name = "{} - {}".format(self.assumed_year, self.assumed_title).replace("\"", "")
+
+                        if "/" in new_name:
+                            print("WARNING: couldn't clean up '{}' (the new name would have a forward slash in it)."
+                                  .format(self.path))
+                            break
+
+                        if old_name != new_name:
+                            self.rename(new_name)
+                    else:
+                        print("WARNING: couldn't clean up '{}'.".format(self.path))
+
+
 class AlbumDirectoryValidator:
     def __init__(self, album_directory):
         self.album_directory = album_directory
@@ -199,34 +299,6 @@ class AlbumDirectoryValidator:
     @property
     def is_valid(self):
         return len(self.validation_errors) == 0
-
-    def validate(self):
-        if not self.validate_basename_is_lowercase:
-            print("{} looks like it has uppercase letters.".format(self.album_directory.basename))
-            self.validation_errors.append(AlbumDirectoryValidationError.BASENAME_NOT_LOWERCASE)
-
-        if not self.validate_basename_has_valid_year_and_hyphen:
-            print("{} isn't in format 'YYYY - '.".format(self.album_directory.basename))
-            self.validation_errors.append(AlbumDirectoryValidationError.BASENAME_YEAR_HYPHEN_INVALID)
-
-        if not self.validate_has_no_subdirectories:
-            print("{} has subdirectories, which is kind of weird."
-                  .format(self.album_directory.basename))
-            self.validation_errors.append(AlbumDirectoryValidationError.HAS_SUBDIRECTORIES)
-
-        if not self.validate_is_not_empty:
-            print("({} is empty.".format(self.album_directory.basename))
-            self.validation_errors.append(AlbumDirectoryValidationError.IS_EMPTY)
-
-        if not self.validate_has_mp3s_or_flacs:
-            print("{} doesn't contain any .mp3 or .flac files."
-                  .format(self.album_directory.basename))
-            self.validation_errors.append(AlbumDirectoryValidationError.NO_MP3S_OR_FLACS)
-
-        if not self.validate_has_year_and_title:
-            print("{} doesn't have an obvious year/title."
-                  .format(self.album_directory.basename))
-            self.validation_errors.append(AlbumDirectoryValidationError.NO_OBVIOUS_YEAR_AND_TITLE)
 
     @property
     def validate_basename_is_lowercase(self):
@@ -255,18 +327,46 @@ class AlbumDirectoryValidator:
                any(x.lower().endswith(".flac") for x in self.album_directory.all_nested_files)
 
     @property
-    def validate_has_year_and_title(self):
-        return re.match(r"\d{4}\s-\s.*", self.album_directory.basename)
+    def validate_has_year_hyphen_and_title(self):
+        return re.match(r"\d{4}\s-\s.+", self.album_directory.basename)
 
     @property
     def is_valid(self):
         return len(self.validation_errors) == 0
 
+    def validate(self):
+        print("Validating '{}' album directory...".format(self.album_directory.path))
+
+        if not self.validate_basename_is_lowercase:
+            print("    {} looks like it has uppercase letters.".format(self.album_directory.basename))
+            self.validation_errors.append(AlbumDirectoryValidationError.BASENAME_NOT_LOWERCASE)
+
+        if not self.validate_has_no_subdirectories:
+            print("    {} has subdirectories, which is kind of weird."
+                  .format(self.album_directory.basename))
+            self.validation_errors.append(AlbumDirectoryValidationError.HAS_SUBDIRECTORIES)
+
+        if not self.validate_is_not_empty:
+            print("    {} is empty.".format(self.album_directory.basename))
+            self.validation_errors.append(AlbumDirectoryValidationError.IS_EMPTY)
+
+        if not self.validate_has_mp3s_or_flacs:
+            print("    {} doesn't contain any .mp3 or .flac files."
+                  .format(self.album_directory.basename))
+            self.validation_errors.append(AlbumDirectoryValidationError.NO_MP3S_OR_FLACS)
+
+        if not self.validate_has_year_hyphen_and_title:
+            print("    {} doesn't have an obvious year/title."
+                  .format(self.album_directory.basename))
+            self.validation_errors.append(AlbumDirectoryValidationError.NO_OBVIOUS_YEAR_AND_TITLE)
+
+        if self.is_valid:
+            print("'{}' album directory is valid!".format(self.album_directory.path))
+
 
 class AlbumDirectoryValidationError(Enum):
 
     BASENAME_NOT_LOWERCASE = 0,
-    BASENAME_YEAR_HYPHEN_INVALID = 1,
     HAS_SUBDIRECTORIES = 2,
     IS_EMPTY = 3,
     NO_MP3S_OR_FLACS = 4,
