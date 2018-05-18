@@ -62,4 +62,4 @@ The `config.json` file looks like this:
 
 ### special thanks
 
-to winlint-cli and delia (r.i.p.) - the C# and WPF versions of lydia that I frankensteined and deprecated to write this program
+to winlint-cli and delia, the original C#/WPF versions of lydia that I exhumed to write this program (r.i.p.)
