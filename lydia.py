@@ -20,13 +20,11 @@ def init(args):
             if not artist.validator.is_valid:
                 artist.clean(dry_run=args.dry_run)
 
-            print("\nCleaning '{}' albums...".format(artist_name))
-
             for album in artist.album_directories:
                 if not album.validator.is_valid:
+                    print("\nCleaning '{}' albums...".format(artist_name))
                     album.clean()
-
-            print("Successfully cleaned '{}' albums!\n".format(artist_name))
+                    print("Successfully cleaned '{}' albums!\n".format(artist_name))
 
         print("Successfully cleaned {} archive directory!".format(config.archive_directory))
 

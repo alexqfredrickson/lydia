@@ -139,14 +139,17 @@ class ArtistDirectory(Directory):
         for error in self.validator.validation_errors:
             if error == ArtistDirectoryValidationError.IS_EMPTY:
                 if dry_run:
-                    print("would have deleted {}".format(self.basename))
+                    print("DRY RUN: would have deleted '{}'.".format(self.basename))
                 else:
                     self.delete()
 
                 break
             else:
-                if error == AlbumDirectoryValidationError.BASENAME_NOT_LOWERCASE:
+                if error == ArtistDirectoryValidationError.BASENAME_NOT_LOWERCASE:
                     self.rename(self.basename.lower(), ask_permission=False)
+
+                if error == ArtistDirectoryValidationError.HAS_LOOSE_FILES:
+                    print("WARNING: '{}' has loose files.".format(self.path))
 
     def get_album_directories(self):
         dirs = []
@@ -170,18 +173,30 @@ class ArtistDirectoryValidator:
         return len(self.validation_errors) == 0
 
     def validate(self):
-        print("Validating '{}' artist directory...".format(self.artist_directory.path))
+        print("Validating '{}' artist directory...".format(self.artist_directory.path), end='')
 
         if not self.validate_basename_is_lowercase:
-            print("    {} looks like it has uppercase letters.".format(self.artist_directory.basename))
             self.validation_errors.append(ArtistDirectoryValidationError.BASENAME_NOT_LOWERCASE)
 
         if not self.validate_is_not_empty:
-            print("    {} is empty.".format(self.artist_directory.basename))
             self.validation_errors.append(ArtistDirectoryValidationError.IS_EMPTY)
 
+        if not self.validate_no_loose_files:
+            self.validation_errors.append(ArtistDirectoryValidationError.HAS_LOOSE_FILES)
+
         if self.is_valid:
-            print("'{}' artist directory is valid!".format(self.artist_directory.path))
+            print("valid!")
+
+        else:
+            print("INVALID!")
+
+            for e in self.validation_errors:
+                if e == ArtistDirectoryValidationError.BASENAME_NOT_LOWERCASE:
+                    print("    {} looks like it has uppercase letters.".format(self.artist_directory.basename))
+                elif e == ArtistDirectoryValidationError.IS_EMPTY:
+                    print("    {} is empty.".format(self.artist_directory.basename))
+                elif e == ArtistDirectoryValidationError.HAS_LOOSE_FILES:
+                    print("    {} has loose files.".format(self.artist_directory.basename))
 
     @property
     def validate_basename_is_lowercase(self):
@@ -192,18 +207,20 @@ class ArtistDirectoryValidator:
         return all(letter.islower() for letter in self.artist_directory.basename if letter.isalpha())
 
     @property
-    def validate_is_not_empty(self):
-        return os.listdir(self.artist_directory.path) != []
+    def validate_no_loose_files(self):
+        contents = [os.path.join(self.artist_directory.path, c) for c in os.listdir(self.artist_directory.path)]
+        return any(os.path.isfile(c) for c in contents) is False
 
     @property
-    def is_valid(self):
-        return len(self.validation_errors) == 0
+    def validate_is_not_empty(self):
+        return os.listdir(self.artist_directory.path) != []
 
 
 class ArtistDirectoryValidationError(Enum):
 
     BASENAME_NOT_LOWERCASE = 0,
-    IS_EMPTY = 1
+    IS_EMPTY = 1,
+    HAS_LOOSE_FILES = 2
 
 
 class AlbumDirectory(Directory):
@@ -330,38 +347,42 @@ class AlbumDirectoryValidator:
     def validate_has_year_hyphen_and_title(self):
         return re.match(r"\d{4}\s-\s.+", self.album_directory.basename)
 
-    @property
-    def is_valid(self):
-        return len(self.validation_errors) == 0
-
     def validate(self):
-        print("Validating '{}' album directory...".format(self.album_directory.path))
+
+        print("Validating '{}' album directory...".format(self.album_directory.path), end='')
 
         if not self.validate_basename_is_lowercase:
-            print("    {} looks like it has uppercase letters.".format(self.album_directory.basename))
             self.validation_errors.append(AlbumDirectoryValidationError.BASENAME_NOT_LOWERCASE)
 
         if not self.validate_has_no_subdirectories:
-            print("    {} has subdirectories, which is kind of weird."
-                  .format(self.album_directory.basename))
             self.validation_errors.append(AlbumDirectoryValidationError.HAS_SUBDIRECTORIES)
 
         if not self.validate_is_not_empty:
-            print("    {} is empty.".format(self.album_directory.basename))
             self.validation_errors.append(AlbumDirectoryValidationError.IS_EMPTY)
 
         if not self.validate_has_mp3s_or_flacs:
-            print("    {} doesn't contain any .mp3 or .flac files."
-                  .format(self.album_directory.basename))
             self.validation_errors.append(AlbumDirectoryValidationError.NO_MP3S_OR_FLACS)
 
         if not self.validate_has_year_hyphen_and_title:
-            print("    {} doesn't have an obvious year/title."
-                  .format(self.album_directory.basename))
             self.validation_errors.append(AlbumDirectoryValidationError.NO_OBVIOUS_YEAR_AND_TITLE)
 
         if self.is_valid:
-            print("'{}' album directory is valid!".format(self.album_directory.path))
+            print("valid!")
+
+        else:
+            print("INVALID!")
+
+            for e in self.validation_errors:
+                if e == AlbumDirectoryValidationError.BASENAME_NOT_LOWERCASE:
+                    print("    {} looks like it has uppercase letters.".format(self.album_directory.basename))
+                elif e == AlbumDirectoryValidationError.HAS_SUBDIRECTORIES:
+                    print("    {} has subdirectories, which is kind of weird.".format(self.album_directory.basename))
+                elif e == AlbumDirectoryValidationError.IS_EMPTY:
+                    print("    {} is empty.".format(self.album_directory.basename))
+                elif e == AlbumDirectoryValidationError.NO_MP3S_OR_FLACS:
+                    print("    {} doesn't contain any .mp3 or .flac files.".format(self.album_directory.basename))
+                elif  e == AlbumDirectoryValidationError.NO_OBVIOUS_YEAR_AND_TITLE:
+                    print("    {} doesn't have an obvious year/title.".format(self.album_directory.basename))
 
 
 class AlbumDirectoryValidationError(Enum):
