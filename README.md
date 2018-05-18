@@ -51,10 +51,23 @@ The `config.json` file looks like this:
 ]
 ```
 
-| name             |   type      | description  |
-| :---------------- | :----------- | :------------ |
-| working_directory | path      | your music downloads folder, which contains album directories for lydia to inspect |
-| archive_directory | path      | your main music folder, which contains artist directories for lydia to inspect |
+| name              | type         | description                                                                        |
+| :---------------- | :----------- | :--------------------------------------------------------------------------------- |
+| working_directory | path         | your music downloads folder, which contains album directories for lydia to inspect |
+| archive_directory | path         | your main music folder, which contains artist directories for lydia to inspect     |
+
+### usage
+
+| argument name              | description                                    |
+| :------------------------- | :--------------------------------------------- |
+| -w, --clean-working-dir    | cleans up the working (albums) directory       |
+| -a, --clean-archive-dir    | cleans up the archival (artists) directory     |
+| -m, --move-to-archive-dir  | archives downloaded albums (***coming soon***) | 
+| -d, --dry-run              | paranoid mode (***coming soon***)              |
+
+### errata
+
+ * lydia will skip validation of any artist/album directories with leading underscores.
 
 ### coming soon
 
