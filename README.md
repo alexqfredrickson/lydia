@@ -38,11 +38,7 @@ And worst of all, lydia doesn't like the **[super hidden](http://www.eightforums
 3. Update the config.json file (below).
 4. Let lydia loose
 
-### coming soon
-
-* all ***coming soon*** features
-
-### bootstrapping config.json
+### config.json
 
 The `config.json` file looks like this:
 
@@ -59,6 +55,10 @@ The `config.json` file looks like this:
 | :---------------- | :----------- | :------------ |
 | working_directory | path      | your music downloads folder, which contains album directories for lydia to inspect |
 | archive_directory | path      | your main music folder, which contains artist directories for lydia to inspect |
+
+### coming soon
+
+* all ***coming soon*** features
 
 ### special thanks
 
