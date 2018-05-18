@@ -279,6 +279,8 @@ class AlbumDirectory(Directory):
         return None
 
     def clean(self):
+        print("\nCleaning '{}' albums...".format(self.basename))
+
         for error in self.validator.validation_errors:
 
             if error in [AlbumDirectoryValidationError.IS_EMPTY,
@@ -304,6 +306,8 @@ class AlbumDirectory(Directory):
                             self.rename(new_name)
                     else:
                         print("WARNING: couldn't clean up '{}'.".format(self.path))
+
+        print("Successfully cleaned '{}' albums!\n".format(self.basename))
 
 
 class AlbumDirectoryValidator:
