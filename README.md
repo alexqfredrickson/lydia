@@ -1,4 +1,4 @@
-# lydia
+# lydia (version 0.0.0.-alpha)
 
 **lydia** is a highly-opinionated Python 3 utility that uses a combination of regex and [eyed3](http://eyed3.nicfit.net/) in order to help tidy up your Windows .mp3 directories.
 
