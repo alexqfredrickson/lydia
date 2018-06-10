@@ -35,7 +35,7 @@ And worst of all, lydia doesn't like the **[super hidden](http://www.eightforums
 
 1. Download the lydia GitHub repository.
 2. `pip install eyeD3` and `pip install discogs_client`.
-3. Update the config.json file (below).
+3. Create a config.json file at the project root (see below).
 4. Let lydia loose
 
 ### config.json
