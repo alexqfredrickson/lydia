@@ -1,4 +1,4 @@
-# lydia (v0.0.0-alpha)
+# lydia (v0.0.1-alpha)
 
 **lydia** is a highly-opinionated Python 3 utility that uses a combination of regex and [eyed3](http://eyed3.nicfit.net/) in order to help tidy up your Windows .mp3 directories.
 
@@ -46,15 +46,17 @@ The `config.json` file looks like this:
 [
   {
     "working_directory": "I:\\Jane Doe\\Downloads",
-    "archive_directory": "C:\\Jane Doe\\Music"    
+    "archive_directory": "C:\\Jane Doe\\Music",
+    "discogs_user_token": "abc123" 
   }
 ]
 ```
 
-| name              | type         | description                                                                        |
-| :---------------- | :----------- | :--------------------------------------------------------------------------------- |
-| working_directory | path         | your music downloads folder, which contains album directories for lydia to inspect |
-| archive_directory | path         | your main music folder, which contains artist directories for lydia to inspect     |
+| name               | type   | description                                                                        |
+| :----------------  | :----- | :--------------------------------------------------------------------------------- |
+| working_directory  | string | the path to your music downloads folder, which contains album directories for lydia to inspect |
+| archive_directory  | string | the path to your main music folder, which contains artist directories for lydia to inspect     |
+| discogs_user_token | string | a discogs api user token     |
 
 ### usage
 
