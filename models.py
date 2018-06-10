@@ -2,7 +2,6 @@ import re
 import os
 import json
 import shutil
-import discogs_client
 from enum import Enum
 from eyed3 import id3
 
@@ -195,10 +194,6 @@ class ArtistDirectoryValidator:
     def validate_is_not_empty(self):
         return os.listdir(self.artist_directory.path) != []
 
-    @property
-    def is_valid(self):
-        return len(self.validation_errors) == 0
-
 
 class ArtistDirectoryValidationError(Enum):
 
@@ -330,10 +325,6 @@ class AlbumDirectoryValidator:
     def validate_has_year_hyphen_and_title(self):
         return re.match(r"\d{4}\s-\s.+", self.album_directory.basename)
 
-    @property
-    def is_valid(self):
-        return len(self.validation_errors) == 0
-
     def validate(self):
         print("Validating '{}' album directory...".format(self.album_directory.path))
 
@@ -379,6 +370,7 @@ class LydiaConfig:
         self.config_file_path = os.path.join(self.executing_directory, "config.json")
         self.working_directory = self.get_config_value("working_directory")
         self.archive_directory = self.get_config_value("archive_directory")
+        self.discogs_user_token = self.get_config_value("discogs_user_token")
 
     @staticmethod
     def get_executing_directory():

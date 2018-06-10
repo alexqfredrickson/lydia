@@ -1,5 +1,7 @@
 [
   {
-    "workingDirectory": "C:\\Jane Doe\\Music"
+    "working_directory": "I:\\Jane Doe\\Downloads",
+    "archive_directory": "C:\\Jane Doe\\Music",
+    "discogs_user_token": "discogs_user_token"
   }
 ]
