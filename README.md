@@ -1,29 +1,27 @@
-# lydia
+# lydia (v0.0.1-alpha)
 
-**lydia** provides suggestions about how you should clean up your .mp3 folder.  More specifically, **lydia** is a highly-opinionated Python 3 utility that uses a combination of regex and [eyed3](http://eyed3.nicfit.net/) in order to help tidy things up.
+**lydia** is a highly-opinionated Python 3 utility that uses a combination of regex and [eyed3](http://eyed3.nicfit.net/) in order to help tidy up your Windows .mp3 directories.
 
 ### things lydia likes
 
-lydia likes it when your .mp3 folder looks **exactly like this**:
+lydia **enforces artist/album naming conventions** to make your main music folder look **exactly like this**:
 
 ```properties
-  Joy Division # mixed-case
-    ↳ 1979 - unknown pleasures # lower-case
-      ↳ 01 - Disorder.mp3 # who-cares-case
+  joy division  # lowercase, not empty, no loose files
+    ↳ 1979 - unknown pleasures # lowercase, starts with a year and hyphen, not empty
+      ↳ 01 - Disorder.mp3 # "who cares"-case, is an .mp3 or .flac file (sorry .ogg/.wav!)
       ↳ 02 - Day of the Lords.mp3 
 #     ↳ etc.
     ↳ 1980 - closer
 #     ↳ etc.
     
-  Judy Collins
+  judy collins
     ↳ 1962 - golden apples of the sun
 #     ↳ etc.
 #   ↳ etc.
 ```
 
-... so lydia **enforces artist/album naming conventions** in accordance with the file system structure described above so your folder doesn't get totally out-of-whack.
-
-And when lydia doesn't know what artist composed an album, or what year the album was produced, or what the actual album name is - lydia **take guesses** based on regex parsing, and ID3v2 metadata extracted from individual .mp3s, in order to suggest new directory names.
+... and when lydia doesn't know what artist composed an album, or what year the album was produced, or what the actual album name is - lydia **takes guesses** based on regex parsing (or ID3v2 .mp3 header information) in order to suggest new album directory names.
 
 ### things lydia doesn't like
 
@@ -35,28 +33,48 @@ And worst of all, lydia doesn't like the **[super hidden](http://www.eightforums
 
 ### installation/setup
 
-1. Download the GitHub repository.
-2. Download eyed3.
-3. Udpate the hard-coded working directory.
+1. Download the lydia GitHub repository.
+2. `pip install eyeD3` and `pip install discogs_client`.
+3. Create a config.json file at the project root (see below).
 4. Let lydia loose
 
-### coming soon
+### config.json
 
-* all ***coming soon*** features
-* json-based config instead of hard-coded garbage:
+The `config.json` file looks like this:
 
 ```
 [
   {
-    "workingDirectory": "C:\\Jane Doe\\Music"
+    "working_directory": "I:\\Jane Doe\\Downloads",
+    "archive_directory": "C:\\Jane Doe\\Music",
+    "discogs_user_token": "abc123" 
   }
 ]
 ```
 
-| name             |   type      | description  |
-| :---------------- | :----------- | :------------ |
-| workingDirectory | string      | a path to the root-level folder that lydia inspects |
+| name               | type   | description                                                                        |
+| :----------------  | :----- | :--------------------------------------------------------------------------------- |
+| working_directory  | string | the path to your music downloads folder, which contains album directories for lydia to inspect |
+| archive_directory  | string | the path to your main music folder, which contains artist directories for lydia to inspect     |
+| discogs_user_token | string | a discogs api user token     |
+
+### usage
+
+| argument name              | description                                    |
+| :------------------------- | :--------------------------------------------- |
+| -w, --clean-working-dir    | cleans up the working (albums) directory       |
+| -a, --clean-archive-dir    | cleans up the archival (artists) directory     |
+| -m, --move-to-archive-dir  | archives downloaded albums (***coming soon***) | 
+| -d, --dry-run              | paranoid mode (***coming soon***)              |
+
+### errata
+
+ * lydia will skip validation of any artist/album directories with leading underscores.
+
+### coming soon
+
+* all ***coming soon*** features
 
 ### special thanks
 
-to winlint-cli and delia (r.i.p.) - the C# and WPF versions of lydia that I frankensteined and deprecated to write this program
+to winlint-cli and delia, the original C#/WPF versions of lydia that I exhumed to write this program (r.i.p.)
