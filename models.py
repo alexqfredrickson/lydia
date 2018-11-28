@@ -90,6 +90,33 @@ class Directory:
             self.path = None
             self.basename = None
 
+    def move(self, new_path, ask_permission=False, verbose=True):
+
+        if ask_permission:
+            print("Would you like to move '{}' to '{}'?".format(self.path, new_path))
+
+            user_input = input().lower()
+
+            if user_input not in ("y", "yes"):
+
+                if verbose:
+                    print("Okay, I won't move this.")
+
+                return False
+            else:
+                print("Okay, will do!")
+
+        shutil.move(self.path, new_path)
+
+        if verbose:
+            print("Succesfully moved '{}'.".format(self.path))
+
+        self.path = new_path
+        self.dirname = os.path.dirname(new_path)
+        self.basename = os.path.basename(new_path)
+
+        return True
+
 
 class Mp3:
     def __init__(self, path):
@@ -276,6 +303,19 @@ class AlbumDirectory(Directory):
         elif len(self.mp3s) > 0 and str(self.mp3s[0].id_tag.recording_date):
             return str(self.mp3s[0].id_tag.album).lower()
 
+    @property
+    def assumed_artist(self):
+        if len(self.mp3s) > 0 and str(self.mp3s[0].id_tag.artist):
+
+            assumed_artist_name = str(self.mp3s[0].id_tag.artist).lower().strip()
+
+            if "," in assumed_artist_name or assumed_artist_name == "none":
+                print("WARNING: it's a bad idea to assume the artist is literally named '{}'.".format(assumed_artist_name))
+                return None
+
+            return assumed_artist_name
+
+        print("WARNING: could not determine the artist associated with {}.".format(self.basename))
         return None
 
     def clean(self):
@@ -308,6 +348,20 @@ class AlbumDirectory(Directory):
                         print("WARNING: couldn't clean up '{}'.".format(self.path))
 
         print("Successfully cleaned '{}' albums!\n".format(self.basename))
+
+    def archive(self, archive_directory, verbose=True):
+
+        if not self.assumed_artist:
+            print("WARNING: could not archive {} - the artist name could not be determined from the contents of this "
+                  "directory.".format(self.basename))
+            return None
+
+        archival_directory_artist_directory_path = os.path.join(archive_directory, self.assumed_artist.lower())
+
+        if not os.path.isdir(archival_directory_artist_directory_path):
+            os.mkdir(archival_directory_artist_directory_path)
+
+        self.move(archival_directory_artist_directory_path, verbose=verbose)
 
 
 class AlbumDirectoryValidator:
@@ -385,7 +439,7 @@ class AlbumDirectoryValidator:
                     print("    {} is empty.".format(self.album_directory.basename))
                 elif e == AlbumDirectoryValidationError.NO_MP3S_OR_FLACS:
                     print("    {} doesn't contain any .mp3 or .flac files.".format(self.album_directory.basename))
-                elif  e == AlbumDirectoryValidationError.NO_OBVIOUS_YEAR_AND_TITLE:
+                elif e == AlbumDirectoryValidationError.NO_OBVIOUS_YEAR_AND_TITLE:
                     print("    {} doesn't have an obvious year/title.".format(self.album_directory.basename))
 
 
@@ -404,6 +458,7 @@ class LydiaConfig:
         self.config_file_path = os.path.join(self.executing_directory, "config.json")
         self.working_directory = self.get_config_value("working_directory")
         self.archive_directory = self.get_config_value("archive_directory")
+        self.staging_directory = self.get_config_value("staging_directory")
 
     @staticmethod
     def get_executing_directory():
