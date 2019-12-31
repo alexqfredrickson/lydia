@@ -1,0 +1,3 @@
+discogs_client
+eyed3
+python-magic-bin

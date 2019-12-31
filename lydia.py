@@ -5,31 +5,51 @@ from models import *
 def init(args):
     config = LydiaConfig()
 
-    if args.clean_archive_dir and config.archive_directory is not None:
-        clean_archival_directory(config.archive_directory)
+    clean_artists_dir = args.clean_artists_dir and config.artists_directory is not None
+    clean_albums_dir = args.clean_albums_dir and config.albums_directory is not None
 
-    if args.clean_working_dir and config.working_directory is not None:
-        clean_working_directory(config.archive_directory, config.working_directory, args.dry_run)
+    migrate_to_staging_dir = None
+    migrate_to_albums_dir = None
+
+    if config.staging_directory is not None and config.albums_directory is not None:
+        migrate_to_staging_dir = args.migrate_to_staging_dir
+        migrate_to_albums_dir = args.migrate_to_albums_dir
+
+    if clean_artists_dir:
+        clean_artists_directory(config.artists_directory, args.force)
+        exit(0)
+
+    if clean_albums_dir:
+        clean_albums_directory(config.artists_directory, config.albums_directory, args.force)
+        exit(0)
+
+    if migrate_to_staging_dir:
+        migrate_albums_to_staging_directory(config.albums_directory, config.staging_directory)
+        exit(0)
+
+    if migrate_to_albums_dir:
+        migrate_staging_to_albums_directory(config.albums_directory, config.staging_directory)
+        exit(0)
 
 
-def clean_archival_directory(archive_directory):
+def clean_artists_directory(artists_directory, force):
     """
-    Validates and cleans each folder in the archival (artist) directorym, then validates artists' album directories.
+    Validates/cleans each folder in the artists directory, then validates artists' album directories.
     """
 
-    print("Cleaning archival directory '{}'...\n".format(archive_directory))
+    print("Cleaning artists directory '{}'...\n".format(artists_directory))
 
-    for artist_name in os.listdir(archive_directory):
+    for artist_name in os.listdir(artists_directory):
 
         if artist_name.startswith("_"):
             print("Skipped {}!".format(artist_name))
             continue
 
-        artist_dir = os.path.join(archive_directory, artist_name)
+        artist_dir = os.path.join(artists_directory, artist_name)
         artist = ArtistDirectory(artist_dir)
 
         if not artist.validator.is_valid:
-            artist.clean(dry_run=args.dry_run)
+            artist.clean(force=force)
 
         for album in artist.album_directories:
 
@@ -38,21 +58,20 @@ def clean_archival_directory(archive_directory):
                 continue
 
             if not album.validator.is_valid:
-                album.clean()
+                album.clean(force=force)
 
-    print("Successfully cleaned {} archive directory!".format(archive_directory))
+    print("Successfully cleaned {} artists directory!".format(artists_directory))
 
 
-def clean_working_directory(archive_directory, working_directory, dry_run=False):
+def clean_albums_directory(artists_directory, albums_directory, force):
     """
-    Validates and cleans each folder in the working (album) directory, then moves album directories to the archival
-    directory.
+    Validates/sanitizes each folder in the albums directory, then moves albums to the archival directory.
     """
 
-    print("Cleaning {} working directory...".format(working_directory))
+    print("Cleaning {} albums directory...".format(albums_directory))
 
-    for album_name in os.listdir(working_directory):
-        album = AlbumDirectory(os.path.join(working_directory, album_name))
+    for album_name in os.listdir(albums_directory):
+        album = AlbumDirectory(os.path.join(albums_directory, album_name))
 
         if album.basename.startswith("_"):
             print("Skipped {}!".format(album.basename))
@@ -61,20 +80,50 @@ def clean_working_directory(archive_directory, working_directory, dry_run=False)
             if album.validator.is_valid:
                 print("'{}' looks legit!\n".format(album_name))
             else:
-                album.clean()
+                album.clean(force=force)
 
-        if args.move_to_archive_dir:
-            album.archive(archive_directory)
+    print("Successfully cleaned {} albums directory!".format(albums_directory))
 
-    print("Successfully cleaned {} working directory!".format(working_directory))
+
+def migrate_albums_to_staging_directory(albums_directory, staging_directory):
+    """
+    Creates artist directories in the staging directory, and migrates albums into them from the albums directory.
+    """
+
+    print("Migrating {} to {}...".format(albums_directory, staging_directory))
+
+    for album_name in os.listdir(albums_directory):
+        album = AlbumDirectory(os.path.join(albums_directory, album_name))
+        album.migrate(staging_directory)
+
+    print("Successfully migrated {} to staging!".format(albums_directory))
+
+
+def migrate_staging_to_albums_directory(albums_directory, staging_directory):
+    """
+    Moves all artists' albums in the staging directory back to the albums directory.
+    """
+
+    print("Migrating {} to {}...".format(staging_directory, albums_directory))
+
+    for artist_dir in os.listdir(staging_directory):
+        for album_dir in os.listdir(os.path.join(staging_directory, artist_dir)):
+            album = AlbumDirectory(os.path.join(staging_directory, artist_dir, album_dir))
+            album.move(albums_directory)
+
+    print("Successfully migrated {} to staging!".format(staging_directory))
 
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("-w", "--clean-working-dir", dest="clean_working_dir", action="store_true")
-    argparser.add_argument("-a", "--clean-archive-dir", dest="clean_archive_dir", action="store_true")
-    argparser.add_argument("-m", "--move-to-archive-dir", dest="move_to_archive_dir", action="store_true")
-    argparser.add_argument("-d", "--dry-run", dest="dry_run", action="store_true")
+
+    argparser.add_argument("-a", "--clean-albums-dir", dest="clean_albums_dir", action="store_true")
+    argparser.add_argument("-A", "--clean-artists-dir", dest="clean_artists_dir", action="store_true")
+    argparser.add_argument("-m", "--migrate-albums-to-staging", dest="migrate_to_staging_dir", action="store_true")
+    argparser.add_argument("-s", "--migrate-staging-to-albums", dest="migrate_to_albums_dir", action="store_true")
+    argparser.add_argument("-M", "--migrate-to-artists-dir", dest="migrate_to_artists_dir", action="store_true")
+    argparser.add_argument("-f", "--force", dest="force", action="store_true")
+
     args = argparser.parse_args()
 
     init(args)

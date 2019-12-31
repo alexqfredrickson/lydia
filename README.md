@@ -1,8 +1,8 @@
-# lydia (v0.0.1-alpha)
+# lydia (v1.0.0-beta)
 
-**lydia** is a highly-opinionated Python 3 utility that uses a combination of regex and [eyed3](http://eyed3.nicfit.net/) in order to help tidy up your Windows .mp3 directories.
-
-### things lydia likes
+**lydia** is a somewhat-opinionated Python 3 utility that helps you tidy up your Windows .mp3 directories.
+ 
+#### things lydia likes
 
 lydia **enforces artist/album naming conventions** to make your main music folder look **exactly like this**:
 
@@ -21,9 +21,9 @@ lydia **enforces artist/album naming conventions** to make your main music folde
 #   ↳ etc.
 ```
 
-... and when lydia doesn't know what artist composed an album, or what year the album was produced, or what the actual album name is - lydia **takes guesses** based on regex parsing (or ID3v2 .mp3 header information) in order to suggest new album directory names.
+... and when lydia doesn't know what artist composed an album, or what year the album was produced, or what the actual album name is - lydia **takes guesses** based on regex parsing and ID3v2 .mp3 header information (using [eyed3](http://eyed3.nicfit.net/)) in order to suggest new album directory names.
 
-### things lydia doesn't like
+#### things lydia doesn't like
 
 lydia *doesn't like* when your album folders contain **incomplete/orphaned files**, so she finds a new home for your orphaned .mp3 files by autogenerating artist/album folders based on ID3 metadata in tandem with the [Discogs.com API](https://www.discogs.com/developers/) ***coming soon***.
 
@@ -31,50 +31,52 @@ lydia will act prejudicially towards you because your album folders don't contai
 
 And worst of all, lydia doesn't like the **[super hidden](http://www.eightforums.com/general-support/40071-how-stop-windows-generating-random-album-art-files.html) [files](https://hydrogenaud.io/index.php/topic,67704.0.html)** in your music folder which were generated at some point or another by Windows Media Player and just sort of fly around under the radar ***coming soon***.
 
-### installation/setup
+## installation/setup
 
-1. Download the lydia GitHub repository.
-2. `pip install eyeD3` and `pip install discogs_client`.
-3. Create a config.json file at the project root (see below).
-4. Let lydia loose
-
-### config.json
-
-The `config.json` file looks like this:
+1. Clone this repository.
+2. Install the dependencies located in the `requirements.txt` file.
+3. Create a config.json file at the project root:
 
 ```
 [
   {
-    "working_directory": "I:\\Jane Doe\\Downloads",
-    "archive_directory": "C:\\Jane Doe\\Music",
-    "discogs_user_token": "abc123" 
+    "albums_directory": "I:\\Jane Doe\\Downloads",
+    "artists_directory": "C:\\Jane Doe\\MusicArchive",
+    "staging_directory": "C:\\Jane Doe\\StagingArchive",
+    "discogs_user_token": "abc123" (coming soon)
   }
 ]
 ```
 
-| name               | type   | description                                                                        |
-| :----------------  | :----- | :--------------------------------------------------------------------------------- |
-| working_directory  | string | the path to your music downloads folder, which contains album directories for lydia to inspect |
-| archive_directory  | string | the path to your main music folder, which contains artist directories for lydia to inspect     |
-| discogs_user_token | string | a discogs api user token     |
+| name               | type   | description                                              |
+| :----------------  | :----- | :--------------------------------------------            |
+| albums_directory   | string | the path to some (downloads) folder, containing albums   |
+| artists_directory  | string | the path to some (archival) folder, containing artists   |
+| staging_directory  | string | same as artists_directory, but used for staging/dry runs |
+| discogs_user_token | string | a discogs api user token (coming soon)                   |
 
-### usage
 
-| argument name              | description                                    |
-| :------------------------- | :--------------------------------------------- |
-| -w, --clean-working-dir    | cleans up the working (albums) directory       |
-| -a, --clean-archive-dir    | cleans up the archival (artists) directory     |
-| -m, --move-to-archive-dir  | archives downloaded albums (***coming soon***) | 
-| -d, --dry-run              | paranoid mode (***coming soon***)              |
+And have fun!
 
-### errata
+## usage
 
- * lydia will skip validation of any artist/album directories with leading underscores.
+| cli args                         | details                                                      |
+| :--------                        | :---------------------------------------------               |
+| -a, --clean-albums-dir           | cleans up the albums directory                               |
+| -A, --clean-artists-dir          | cleans up the artists directory AND cleans up albums         |
+| -m, --migrate-albums-to-staging  | migrates albums to staging directory                         |
+| -s, --migrate-staging-to-albums  | unmigrates albums from staging directory to albums directory |
+| -M, --migrate-to-artists-dir     | migrates albums to artists directory (***coming soon***)     | 
+| -f, --force                      | anti-paranoid mode                                           |
 
-### coming soon
+#### errata
+
+ * by convention, lydia will skip validation of any artist/album directories with leading underscores.
+
+#### coming soon
 
 * all ***coming soon*** features
 
-### special thanks
+#### special thanks
 
-to winlint-cli and delia, the original C#/WPF versions of lydia that I exhumed to write this program (r.i.p.)
+to winlint-cli and delia (the original C#/WPF versions of lydia; r.i.p.)
