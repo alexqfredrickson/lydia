@@ -481,11 +481,12 @@ class AlbumDirectoryValidationError(Enum):
 
 class LydiaConfig:
     def __init__(self):
-        self.executing_directory = self.get_executing_directory()
-        self.config_file_path = os.path.join(self.executing_directory, "config.json")
+        self.config_file_path = os.path.join(self.get_executing_directory(), "config.json")
+
         self.albums_directory = self.get_config_value("albums_directory")
         self.artists_directory = self.get_config_value("artists_directory")
         self.staging_directory = self.get_config_value("staging_directory")
+        self.force = self.get_config_value("force")
 
     @staticmethod
     def get_executing_directory():
