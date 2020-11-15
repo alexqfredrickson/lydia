@@ -30,21 +30,42 @@ lydia enforces artist/album naming conventions to make your music folder look **
 3. Create a config.json file at the project root:
 
 ```
-[
-  {
-    "albums_directory": "I:\\Jane Doe\\Downloads",
-    "artists_directory": "C:\\Jane Doe\\MusicArchive",
-    "staging_directory": "C:\\Jane Doe\\StagingArchive",
-  }
-]
+{
+  "albums_directory": "I:\\Jane Doe\\Downloads",
+  "artists_directory": "C:\\Jane Doe\\MusicArchive",
+  "staging_directory": "C:\\Jane Doe\\StagingArchive",
+
+  "album_validation_behavior": [
+    "rename_as_lowercase": "force|prompt|skip",
+    "rename_as_year_plus_title": "force|prompt|skip",
+    "remove_empty_folders": "force|prompt|skip",
+    "remove_folders_with_no_mp3s_or_flacs": "force|prompt|skip",
+  ]
+}
 ```
+
+The base configuration points lydia to albums/artists/staging folders:
 
 | name               | type   | description                                              |
 | :----------------  | :----- | :--------------------------------------------            |
 | albums_directory   | string | the path to some downloads folder that contains albums   |
 | artists_directory  | string | the path to some archival folder that contains artists   |
-| staging_directory  | string | a mock 'artists_directory' used for staging/dry runs |
+| staging_directory  | string | a mock 'artists_directory' used for staging/dry runs     |
 
+The `album_validation_behavior` configuration tells lydia what actions to take when things are messy:
+ 
+| name                                  | string              | description                                           |
+| :----------------                     | :-----              | :--------------------------------------------         |
+| rename_as_lowercase                   | "force/prompt/skip" | renames an album to lowercase                         |
+| rename_as_year_plus_title             | "force/prompt/skip" | renames an album to 'year - title' format             |
+| remove_empty_folders                  | "force/prompt/skip" | removes an album if it is completely empty            |
+| remove_folders_with_no_mp3s_or_flacs  | "force/prompt/skip" | removes an album if it doesn't contain any mp3s/flacs |
+
+For every `album_validations` configuration:
+
+* If `force` is specified, corrective actions will be carried out automatically.
+* If `prompt` is specified, lydia will prompt before taking any corrective actions.
+* If `skip` is specified, lydia will skip this particular validation.
 
 #### usage
 

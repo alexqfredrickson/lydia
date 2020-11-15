@@ -32,17 +32,26 @@ class ArgumentParser:
 
         if args.clean_albums:
             if not config.albums_directory:
-                print("ERROR: An albums directory must be specified.")
+                print("ERROR: An albums directory must be specified in lydia's `config.json` file..")
+                exit(1)
+
+            if not config.album_validation_behavior \
+                    or not config.album_validation_behavior["rename_as_lowercase"] \
+                    or not config.album_validation_behavior["rename_as_year_plus_title"] \
+                    or not config.album_validation_behavior["remove_empty_folders"] \
+                    or not config.album_validation_behavior["remove_folders_with_no_mp3s_or_flacs"]:
+
+                print("ERROR: Album validation behavior must be specified in lydia's `config.json` file.")
                 exit(1)
 
         if args.clean_artists:
             if not config.artists_directory:
-                print("ERROR: An artists directory must be specified.")
+                print("ERROR: An artists directory must be specified in lydia's `config.json` file..")
                 exit(1)
 
         if args.stage or args.unstage:
             if not config.staging_directory:
-                print("ERROR: A staging directory must be specified.")
+                print("ERROR: A staging directory must be specified in lydia's `config.json` file..")
                 exit(1)
 
         return args
@@ -59,7 +68,7 @@ class Lydia:
             exit(0)
 
         if args.clean_albums:
-            self.clean_albums_directory(args.force)
+            self.clean_albums_directory()
             exit(0)
 
         if args.stage:
@@ -101,12 +110,18 @@ class Lydia:
 
         print(f"Successfully cleaned {artists_dir}.")
 
-    def clean_albums_directory(self, force):
+    def clean_albums_directory(self):
         """
         Validates/sanitizes each folder in the albums directory, then moves albums to the archival directory.
         """
 
         albums_dir = self.config.albums_directory
+
+        rename_as_lowercase = self.config.album_validation_behavior["rename_as_lowercase"]
+        rename_as_year_plus_title = self.config.album_validation_behavior["rename_as_year_plus_title"]
+        remove_empty_folders = self.config.album_validation_behavior["remove_empty_folders"]
+        remove_folders_with_no_mp3s_or_flacs = \
+            self.config.album_validation_behavior["remove_folders_with_no_mp3s_or_flacs"]
 
         print(f"Cleaning {albums_dir}...")
 
@@ -114,13 +129,15 @@ class Lydia:
             album = AlbumDirectory(os.path.join(albums_dir, album_name))
 
             if album.basename.startswith("_"):
-                print(f"Skipped {album.basename}!")
+                print(f"Skipped {album.basename} due to leading underscores in album name...")
                 continue
-            else:
-                if album.validator.is_valid:
-                    print(f"'{album_name}' looks legit!\n")
-                else:
-                    album.clean(force=force)
+
+            album.clean(
+                rename_as_lowercase,
+                rename_as_year_plus_title,
+                remove_empty_folders,
+                remove_folders_with_no_mp3s_or_flacs
+            )
 
         print(f"Successfully cleaned {albums_dir}.")
 
