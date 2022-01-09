@@ -35,12 +35,12 @@ lydia enforces artist/album naming conventions to make your music folder look **
   "artists_directory": "C:\\Jane Doe\\MusicArchive",
   "staging_directory": "C:\\Jane Doe\\StagingArchive",
 
-  "album_validation_behavior": [
+  "album_validation_behavior": {
     "rename_as_lowercase": "force|prompt|skip",
     "rename_as_year_plus_title": "force|prompt|skip",
     "remove_empty_folders": "force|prompt|skip",
     "remove_folders_with_no_mp3s_or_flacs": "force|prompt|skip",
-  ]
+  }
 }
 ```
 
