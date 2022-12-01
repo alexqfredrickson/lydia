@@ -406,7 +406,7 @@ class AlbumDirectory(Directory):
 
         artist_directory_path = os.path.join(
             artists_directory,
-            self.assumed_artist.lower().replace("/", "").replace(":", "_")
+            self.assumed_artist.lower().replace("/", "").replace(":", "_").replace('\"', '\'')
         )
 
         if not os.path.isdir(artist_directory_path):
