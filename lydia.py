@@ -65,19 +65,15 @@ class Lydia:
 
         if args.clean_artists:
             self.clean_artists_directory(args.force)
-            exit(0)
 
         if args.clean_albums:
             self.clean_albums_directory()
-            exit(0)
 
         if args.stage:
             self.migrate_albums_to_staging_directory()
-            exit(0)
 
         if args.unstage:
             self.migrate_staging_to_albums_directory()
-            exit(0)
 
     def clean_artists_directory(self, force):
         """

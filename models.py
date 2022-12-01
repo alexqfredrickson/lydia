@@ -29,6 +29,8 @@ class Directory:
 
     def rename(self, new_basename, prompt=True, verbose=True):
 
+        new_basename = new_basename.replace("?", "")
+
         if prompt:
             print(f"Would you like to change '{self.basename}' to '{new_basename}' in '{self.dirname}'?")
 
@@ -334,7 +336,10 @@ class AlbumDirectory(Directory):
 
     @property
     def basename_has_valid_year_and_hyphen(self):
-        return re.match(r"(17|18|19|20)\d{2}\s-\s..*", self.basename) is not None
+        try:
+            return re.match(r"(17|18|19|20)\d{2}\s-\s..*", self.basename) is not None
+        except Exception as e:
+            return True
 
     @property
     def has_no_subdirectories(self):
