@@ -202,7 +202,6 @@ class ArtistDirectoryValidator:
     def __init__(self, artist_directory):
         self.artist_directory = artist_directory
         self.validation_errors = []
-
         self.validate()
 
     @property
@@ -338,6 +337,13 @@ class AlbumDirectory(Directory):
     def basename_has_valid_year_and_hyphen(self):
         try:
             return re.match(r"(17|18|19|20)\d{2}\s-\s..*", self.basename) is not None
+        except Exception as e:
+            return True
+
+    @property
+    def basename_in_yyyy_mm_dd_format(self):
+        try:
+            return re.match(r"^\d{4}-\d{2}-\d{2}\s.*", self.basename) is not None
         except Exception as e:
             return True
 
