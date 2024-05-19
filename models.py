@@ -5,6 +5,8 @@ import shutil
 from enum import Enum
 from eyed3 import id3
 
+id3.log.setLevel("ERROR")
+
 
 class Directory:
     """
@@ -57,7 +59,7 @@ class Directory:
         else:
             try:
                 os.rename(self.path, os.path.join(self.dirname, new_basename))
-            except FileExistsError as e:
+            except FileExistsError:
                 print(f"WARNING: the '{os.path.join(self.dirname, new_basename)}' directory already exists.")
                 self.delete(prompt=True)
 
@@ -99,7 +101,7 @@ class Directory:
     def move(self, new_path, ask_permission=False, verbose=True):
 
         if ask_permission:
-            print("Would you like to move '{}' to '{}'?".format(self.path, new_path))
+            print(f"Would you like to move '{self.path}' to '{new_path}'?")
 
             user_input = input().lower()
 
@@ -125,7 +127,7 @@ class Directory:
             return True
 
         except Exception as e:
-            print("ERROR: failed to move {}.".format(self.path))
+            print(f"ERROR: failed to move {self.path}.")
             print(e)
 
 
@@ -142,7 +144,7 @@ class Mp3:
         self.id_tag.parse(self.path)
 
 
-class ArtistsDirectory(Directory):
+class BaseArtistsDirectory(Directory):
     """
     An artists directory contains only artist-related subdirectories.
     """
@@ -152,7 +154,7 @@ class ArtistsDirectory(Directory):
         self.subdirectories = [ArtistDirectory(x[0] for x in os.walk(path))]
 
 
-class AlbumsDirectory(Directory):
+class BaseAlbumsDirectory(Directory):
     """
     An albums directory is assumed to contain only album-related subdirectories.
     """
@@ -167,11 +169,13 @@ class ArtistDirectory(Directory):
     An artist directory is assumed to contain only album-related subdirectories.
     """
 
-    def __init__(self, path):
+    def __init__(self, path, validate=True, parse_mp3s=True):
         Directory.__init__(self, path)
 
-        self.validator = ArtistDirectoryValidator(self)
-        self.album_directories = self.get_album_directories()
+        self.album_directories = self.get_album_directories(validate, parse_mp3s)
+
+        if validate:
+            self.validator = ArtistDirectoryValidator(self)
 
     def clean(self, force=False):
         for error in self.validator.validation_errors:
@@ -179,21 +183,21 @@ class ArtistDirectory(Directory):
                 if force:
                     self.delete()
                 else:
-                    print("WARNING: would have deleted '{}'.".format(self.basename))
+                    print(f"WARNING: would have deleted '{self.basename}'.")
                 break
             else:
                 if error == ArtistDirectoryValidationError.BASENAME_NOT_LOWERCASE:
                     self.rename(self.basename.lower(), prompt=False)
 
                 if error == ArtistDirectoryValidationError.HAS_LOOSE_FILES:
-                    print("WARNING: '{}' has loose files.".format(self.path))
+                    print(f"WARNING: '{self.path}' has loose files.")
 
-    def get_album_directories(self):
+    def get_album_directories(self, validate=True, parse_mp3s=True):
         dirs = []
 
         for subdir in os.listdir(self.path):
             if os.path.isdir(os.path.join(self.path, subdir)):
-                dirs.append(AlbumDirectory(os.path.join(self.path, subdir)))
+                dirs.append(AlbumDirectory(os.path.join(self.path, subdir), validate=validate, parse_mp3s=parse_mp3s))
 
         return dirs
 
@@ -209,7 +213,7 @@ class ArtistDirectoryValidator:
         return len(self.validation_errors) == 0
 
     def validate(self):
-        print("Validating '{}' artist directory...".format(self.artist_directory.path), end='')
+        print(f"Validating '{self.artist_directory.path}' artist directory...", end='')
 
         if not self.validate_basename_is_lowercase:
             self.validation_errors.append(ArtistDirectoryValidationError.BASENAME_NOT_LOWERCASE)
@@ -228,11 +232,11 @@ class ArtistDirectoryValidator:
 
             for e in self.validation_errors:
                 if e == ArtistDirectoryValidationError.BASENAME_NOT_LOWERCASE:
-                    print("    {} looks like it has uppercase letters.".format(self.artist_directory.basename))
+                    print(f"    {self.artist_directory.basename} looks like it has uppercase letters.")
                 elif e == ArtistDirectoryValidationError.IS_EMPTY:
-                    print("    {} is empty.".format(self.artist_directory.basename))
+                    print(f"    {self.artist_directory.basename} is empty.")
                 elif e == ArtistDirectoryValidationError.HAS_LOOSE_FILES:
-                    print("    {} has loose files.".format(self.artist_directory.basename))
+                    print(f"    {self.artist_directory.basename} has loose files.")
 
     @property
     def validate_basename_is_lowercase(self):
@@ -264,10 +268,15 @@ class AlbumDirectory(Directory):
     An album directory is assumed to contain only .mp3 files.
     """
 
-    def __init__(self, path):
+    def __init__(self, path, validate=True, parse_mp3s=True):
         Directory.__init__(self, path)
 
-        self.mp3s = self.get_mp3s(self.path)
+        if parse_mp3s:
+            self.mp3s = self.get_mp3s(self.path)
+
+        if validate:
+            self.validator = AlbumDirectoryValidator(self)
+
 
     @staticmethod
     def get_mp3s(path):
@@ -283,9 +292,9 @@ class AlbumDirectory(Directory):
 
     @property
     def assumed_year(self):
-        standard_year_regex = "^\d{4}\s-\s"
-        year_in_parentheses_with_hyphen_regex = "^\(\d{4}\)\s-\s"
-        year_in_brackets_with_hyphen_regex = "^\[\d{4}\]\s-\s"
+        standard_year_regex = r"^\d{4}\s-\s"
+        year_in_parentheses_with_hyphen_regex = r"^\(\d{4}\)\s-\s"
+        year_in_brackets_with_hyphen_regex = r"^\[\d{4}\]\s-\s"
         has_something_that_looks_remotely_like_a_year_regex = r"(17\d{2}|18\d{2}|19\d{2}|20\d{2})"
 
         if re.match(standard_year_regex, self.basename):
@@ -317,12 +326,12 @@ class AlbumDirectory(Directory):
             assumed_artist_name = str(self.mp3s[0].id_tag.artist).lower().strip()
 
             if "," in assumed_artist_name or assumed_artist_name == "none":
-                print("WARNING: it's a bad idea to assume the artist is literally named '{}'.".format(assumed_artist_name))
+                print(f"WARNING: it's a bad idea to assume the artist is literally named '{assumed_artist_name}'.")
                 return None
 
             return assumed_artist_name
 
-        print("WARNING: could not determine the artist associated with {}.".format(self.basename))
+        print(f"WARNING: could not determine the artist associated with {self.basename}.")
         return None
 
     @property
@@ -336,8 +345,9 @@ class AlbumDirectory(Directory):
     @property
     def basename_has_valid_year_and_hyphen(self):
         try:
-            return re.match(r"(17|18|19|20)\d{2}\s-\s..*", self.basename) is not None
+            return re.match(r"(17|18|19|20)\d{2}\s-\s.+", self.basename) is not None
         except Exception as e:
+            print(e)
             return True
 
     @property
@@ -345,6 +355,7 @@ class AlbumDirectory(Directory):
         try:
             return re.match(r"^\d{4}-\d{2}-\d{2}\s.*", self.basename) is not None
         except Exception as e:
+            print(e)
             return True
 
     @property
@@ -371,43 +382,22 @@ class AlbumDirectory(Directory):
                and re.match(r"^\d{4}\s-", self.basename[0:7]) is not None \
                and re.match(r"^\d{4}\s-", self.basename[7:14]) is not None
 
-    def clean(self, rename_as_lowercase, rename_as_year_plus_title, remove_empty_folders,
-              remove_folders_with_no_mp3s_or_flacs):
-
-        if remove_empty_folders != "skip":
-            if self.is_empty:
-                self.delete(prompt=remove_empty_folders == "prompt")
-
-        if remove_folders_with_no_mp3s_or_flacs != "skip":
-            if not self.has_mp3s_or_flacs:
-                self.delete(prompt=remove_folders_with_no_mp3s_or_flacs == "prompt")
-
-        if rename_as_year_plus_title != "skip":
-            if not self.basename_has_valid_year_and_hyphen:
-                if not self.assumed_year or not self.assumed_title:
-                    print(f"WARNING: couldn't clean up '{self.path}'.")
+    def clean(self, force=False):
+        for error in self.validator.validation_errors:
+            if error == AlbumDirectoryValidationError.IS_EMPTY:
+                if force:
+                    self.delete()
                 else:
-                    if self.assumed_year is not None and self.assumed_title is not None:
-                        old_name = self.basename
-                        new_name = f"{self.assumed_year} - {self.assumed_title}".replace("\"", "")
-
-                        if "/" in new_name:
-                            print(
-                                f"WARNING: couldn't clean up '{self.path}' (the new name would have a forward slash in it)."
-                            )
-
-                        elif old_name != new_name:
-                            self.rename(new_name, prompt=rename_as_year_plus_title == "prompt")
-
-        if rename_as_lowercase != "skip":
-            if not self.basename_is_lowercase:
-                self.rename(self.basename.lower(), prompt=rename_as_lowercase == "prompt")
+                    print(f"WARNING: would have deleted '{self.basename}'.")
+                break
+            elif error == AlbumDirectoryValidationError.BASENAME_NOT_LOWERCASE:
+                self.rename(self.basename.lower(), prompt=False)
 
     def migrate(self, artists_directory, verbose=True):
 
         if not self.assumed_artist:
-            print("WARNING: could not migrate {} - the artist name could not be determined from the contents of this "
-                  "directory.".format(self.basename))
+            print(f"WARNING: could not migrate {self.basename} - the artist name could not be determined from the contents of this "
+                  "directory.")
             return None
 
         artist_directory_path = os.path.join(
@@ -421,11 +411,57 @@ class AlbumDirectory(Directory):
         self.move(artist_directory_path, verbose=verbose)
 
 
+class AlbumDirectoryValidationError(Enum):
+
+    BASENAME_NOT_LOWERCASE = 0,
+    IS_EMPTY = 1
+
+
+class AlbumDirectoryValidator:
+    def __init__(self, album_directory):
+        self.album_directory = album_directory
+        self.validation_errors = []
+        self.validate()
+
+    @property
+    def is_valid(self):
+        return len(self.validation_errors) == 0
+
+    def validate(self):
+        print(f"Validating '{self.album_directory.path}' album directory...", end='')
+
+        if not self.validate_basename_is_lowercase:
+            self.validation_errors.append(AlbumDirectoryValidationError.BASENAME_NOT_LOWERCASE)
+
+        if not self.validate_is_not_empty:
+            self.validation_errors.append(AlbumDirectoryValidationError.IS_EMPTY)
+
+        if self.is_valid:
+            print("Valid!" if self.is_valid else "Invalid!")
+
+        for e in self.validation_errors:
+            if e == ArtistDirectoryValidationError.BASENAME_NOT_LOWERCASE:
+                print(f"    {self.album_directory.basename} looks like it has uppercase letters.")
+            elif e == ArtistDirectoryValidationError.IS_EMPTY:
+                print(f"    {self.album_directory.basename} is empty.")
+
+    @property
+    def validate_basename_is_lowercase(self):
+        # if the basename is chinese/japanese/korean, let's just say it's lowercase
+        if any(re.match("[\u2E80-\u9FFF]", letter) for letter in self.album_directory.basename):
+            return True
+
+        return all(letter.islower() for letter in self.album_directory.basename if letter.isalpha())
+
+    @property
+    def validate_is_not_empty(self):
+        return os.listdir(self.album_directory.path) != []
+
+
 class LydiaConfig:
     def __init__(self):
-        executing_directory = os.path.dirname(os.path.abspath(__file__))
-
-        self.config_file_path = os.path.join(executing_directory, "config.json")
+        self.executing_directory = os.path.dirname(os.path.abspath(__file__))
+        self.config_file_path = os.path.join(self.executing_directory, "config.json")
 
         with open(self.config_file_path) as config_file:
             config = json.load(config_file)
@@ -433,6 +469,7 @@ class LydiaConfig:
             self.albums_directory = config["albums_directory"]
             self.artists_directory = config["artists_directory"]
             self.staging_directory = config["staging_directory"]
+            self.inventory_path = config["inventory_path"]
 
             self.album_validation_behavior = {
                 "rename_as_lowercase":

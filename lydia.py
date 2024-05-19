@@ -1,4 +1,6 @@
 import argparse
+import json
+
 from models import *
 
 
@@ -23,11 +25,14 @@ class ArgumentParser:
             help="Moves albums in staging directory to albums directory."
         )
 
+        self.parser.add_argument("-i", "--inventory", dest="inventory", action="store_true")
+
         self.parser.add_argument("-f", "--force", dest="force", action="store_true")
 
     def parse_and_sanitize_args(self):
 
         config = LydiaConfig()
+
         args = self.parser.parse_args()
 
         if args.clean_albums:
@@ -51,7 +56,12 @@ class ArgumentParser:
 
         if args.stage or args.unstage:
             if not config.staging_directory:
-                print("ERROR: A staging directory must be specified in lydia's `config.json` file..")
+                print("ERROR: A staging directory must be specified in lydia's `config.json` file.")
+                exit(1)
+
+        if args.inventory:
+            if not config.inventory_path:
+                print("ERROR: An inventory path must be specified in lydia's `config.json` file.")
                 exit(1)
 
         return args
@@ -75,6 +85,9 @@ class Lydia:
         if args.unstage:
             self.migrate_staging_to_albums_directory()
 
+        if args.inventory:
+            self.create_inventory()
+
     def clean_artists_directory(self, force):
         """
         Validates/cleans each folder in the artists directory, then validates artists' album directories.
@@ -84,13 +97,13 @@ class Lydia:
 
         print(f"Cleaning '{artists_dir}'...\n")
 
-        for artist_name in os.listdir(artists_dir):
+        artist_directories = [ArtistDirectory(os.path.join(artists_dir, a)) for a in os.listdir(artists_dir)]
 
-            if artist_name.startswith("_"):
-                print(f"Skipped {artist_name}!")
+        for artist in artist_directories:
+
+            if artist.basename.startswith("_"):
+                print(f"Skipped {artist.basename}.")
                 continue
-
-            artist = ArtistDirectory(os.path.join(artists_dir, artist_name))
 
             if not artist.validator.is_valid:
                 artist.clean(force=force)
@@ -113,12 +126,6 @@ class Lydia:
 
         albums_dir = self.config.albums_directory
 
-        rename_as_lowercase = self.config.album_validation_behavior["rename_as_lowercase"]
-        rename_as_year_plus_title = self.config.album_validation_behavior["rename_as_year_plus_title"]
-        remove_empty_folders = self.config.album_validation_behavior["remove_empty_folders"]
-        remove_folders_with_no_mp3s_or_flacs = \
-            self.config.album_validation_behavior["remove_folders_with_no_mp3s_or_flacs"]
-
         print(f"Cleaning {albums_dir}...")
 
         for album_name in os.listdir(albums_dir):
@@ -128,12 +135,7 @@ class Lydia:
                 print(f"Skipped {album.basename} due to leading underscores in album name...")
                 continue
 
-            album.clean(
-                rename_as_lowercase,
-                rename_as_year_plus_title,
-                remove_empty_folders,
-                remove_folders_with_no_mp3s_or_flacs
-            )
+            album.clean()
 
         print(f"Successfully cleaned {albums_dir}.")
 
@@ -169,6 +171,39 @@ class Lydia:
                 album.move(albums_dir)
 
         print(f"Successfully migrated {staging_dir} to {albums_dir}.")
+
+    def create_inventory(self):
+        print("INFO: Creating inventory from base artist directory ...")
+
+        artist_inventory = {}
+
+        artist_dirs = [
+            ArtistDirectory(os.path.join(self.config.artists_directory, a), validate=False, parse_mp3s=False)
+            for a in os.listdir(self.config.artists_directory)
+        ]
+
+        for artist in artist_dirs:
+            try:
+                artist_inventory[artist.basename] = [album.basename for album in artist.album_directories]
+            except TypeError as e:
+                print(e)
+
+        with open(os.path.join(self.config.inventory_path, "artists.json"), 'w', encoding='utf-8') as f:
+            json.dump(artist_inventory, f, indent=4)
+
+        print("INFO: Creating inventory from base albums directory ...")
+        album_inventory = []
+
+        album_dirs = [
+            AlbumDirectory(os.path.join(self.config.albums_directory, a), validate=False)
+            for a in os.listdir(self.config.albums_directory)
+        ]
+
+        for album in album_dirs:
+            album_inventory.append(album.basename)
+
+        with open(os.path.join(self.config.inventory_path, "albums.json"), 'w', encoding='utf-8') as f:
+            json.dump(album_inventory, f, indent=4)
 
 
 if __name__ == "__main__":
